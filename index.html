@@ -1,1 +1,20 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Freguesias</title>
+</head>
+<body>
+    <h1>Setup Concluído!</h1>
+    <p id="localizacao">A carregar sinal GPS...</p>
+    
+    <script>
+        navigator.geolocation.getCurrentPosition((pos) => {
+            document.getElementById('localizacao').innerText = 
+                "GPS OK! Latitude: " + pos.coords.latitude;
+        }, (err) => {
+            document.getElementById('localizacao').innerText = "Erro no GPS: " + err.message;
+        });
+    </script>
+</body>
+</html>
