@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Arbitragem</title>
     
-    <!-- Configurações de Web App (PWA) -->
+    <!-- Configurações para transformar o site em App (PWA) -->
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png">
 
     <style>
         :root {
@@ -31,87 +32,92 @@
             justify-content: center;
             height: 100vh;
             overflow: hidden;
+            /* Impede comportamentos chatos de site em tablets */
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .app-container {
             width: 90%;
             max-width: 400px;
             background: var(--card-bg);
-            padding: 30px;
-            border-radius: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            padding: 35px 25px;
+            border-radius: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
             border: 1px solid #333;
             text-align: center;
         }
 
         h1 {
-            font-size: 18px;
+            font-size: 14px;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
             color: var(--text-secondary);
-            margin-bottom: 30px;
+            margin: 0 0 40px 0;
         }
 
         .result-box {
-            margin: 40px 0;
-            min-height: 120px;
+            margin-bottom: 40px;
+            min-height: 140px;
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
 
         #freguesia {
-            font-size: 32px;
-            font-weight: 800;
+            font-size: 34px;
+            font-weight: 900;
             color: var(--accent);
-            line-height: 1.2;
-            margin-bottom: 8px;
+            line-height: 1.1;
+            margin-bottom: 10px;
             text-transform: uppercase;
+            word-wrap: break-word;
         }
 
         #concelho {
-            font-size: 18px;
+            font-size: 20px;
             color: var(--text-secondary);
             font-weight: 400;
+            letter-spacing: 1px;
         }
 
         button {
             background: var(--primary);
             color: white;
             border: none;
-            padding: 20px;
-            border-radius: 15px;
+            padding: 22px;
+            border-radius: 18px;
             width: 100%;
-            font-size: 20px;
+            font-size: 22px;
             font-weight: bold;
             cursor: pointer;
             transition: transform 0.1s, background 0.2s;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+            box-shadow: 0 8px 20px rgba(0, 123, 255, 0.3);
         }
 
         button:active {
-            transform: scale(0.96);
+            transform: scale(0.95);
             background: #0056b3;
         }
 
         .status-bar {
-            margin-top: 25px;
-            font-size: 11px;
+            margin-top: 30px;
+            font-size: 10px;
             color: #444;
             letter-spacing: 1px;
+            font-family: monospace;
         }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <h1>Arbitragem GPS</h1>
+    <h1>Arbitragem</h1>
     
     <div class="result-box">
-        <div id="freguesia">Pronto</div>
-        <div id="concelho">Toque para detetar</div>
+        <div id="freguesia">PRONTO</div>
+        <div id="concelho">TOQUE PARA LOCALIZAR</div>
     </div>
 
     <button onclick="localizar()">ONDE ESTOU?</button>
@@ -120,20 +126,27 @@
 </div>
 
 <script>
+    // Registo do Service Worker para permitir instalação como App
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        });
+    }
+
     function localizar() {
         const fDisplay = document.getElementById('freguesia');
         const cDisplay = document.getElementById('concelho');
         const coDisplay = document.getElementById('coords');
 
-        fDisplay.innerHTML = "A LOCALIZAR...";
-        cDisplay.innerHTML = "Consultando satélites";
+        fDisplay.innerHTML = "LOCALIZANDO...";
+        cDisplay.innerHTML = "AGUARDE";
 
         navigator.geolocation.getCurrentPosition((pos) => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
-            coDisplay.innerHTML = `LAT: ${lat.toFixed(4)} | LON: ${lon.toFixed(4)}`;
+            coDisplay.innerHTML = `LAT: ${lat.toFixed(5)} | LON: ${lon.toFixed(5)}`;
 
-            // API Nominatim (OpenStreetMap)
+            // API Nominatim com prioridade para divisões administrativas de Portugal
             const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
 
             fetch(url)
@@ -141,35 +154,35 @@
                 .then(data => {
                     const addr = data.address;
                     
-                    // Lógica de prioridade para freguesias em Portugal
-                    const freguesiaFinal = addr.suburb || 
-                                           addr.village || 
-                                           addr.neighbourhood || 
-                                           addr.city_district || 
-                                           addr.township || 
-                                           addr.settlement || 
-                                           "Freguesia não detetada";
+                    // Lógica para filtrar o nome correto da freguesia sem "saltos" de texto
+                    let freguesiaFinal = addr.suburb || 
+                                         addr.village || 
+                                         addr.neighbourhood || 
+                                         addr.city_district || 
+                                         addr.township || 
+                                         addr.settlement || 
+                                         "Freguesia Desconhecida";
 
-                    const concelhoFinal = addr.city || 
-                                          addr.town || 
-                                          addr.municipality || 
-                                          addr.county || 
-                                          "Local desconhecido";
+                    let concelhoFinal = addr.city || 
+                                        addr.town || 
+                                        addr.municipality || 
+                                        addr.county || 
+                                        "Portugal";
 
                     fDisplay.innerHTML = freguesiaFinal;
                     cDisplay.innerHTML = concelhoFinal;
                 })
                 .catch(err => {
                     fDisplay.innerHTML = "ERRO DE REDE";
-                    cDisplay.innerHTML = "Verifique a internet";
+                    cDisplay.innerHTML = "TENTE NOVAMENTE";
                 });
 
         }, (err) => {
-            fDisplay.innerHTML = "GPS BLOQUEADO";
-            cDisplay.innerHTML = "Ative a localização";
+            fDisplay.innerHTML = "GPS DESLIGADO";
+            cDisplay.innerHTML = "ATIVE A LOCALIZAÇÃO";
         }, { 
             enableHighAccuracy: true,
-            timeout: 5000,
+            timeout: 8000,
             maximumAge: 0 
         });
     }
