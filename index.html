@@ -3,57 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arbitragem - Freguesias</title>
+    <title>Arbitragem - Freguesias de Portugal</title>
+    <!-- Bibliotecas Necessárias -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f0f0f0; }
-        button { padding: 20px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 8px; }
-        #resultado { margin-top: 30px; font-size: 24px; font-weight: bold; color: #333; }
+        body { font-family: sans-serif; text-align: center; padding: 30px; background: #121212; color: white; }
+        .container { background: #1e1e1e; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        #nome-freguesia { font-size: 30px; color: #00ff88; margin: 20px 0; font-weight: bold; }
+        #nome-concelho { font-size: 20px; color: #aaa; margin-bottom: 20px; }
+        button { background: #007bff; color: white; border: none; padding: 20px; border-radius: 10px; width: 100%; font-size: 20px; font-weight: bold; cursor: pointer; }
+        #status { margin-top: 15px; font-size: 14px; color: #666; }
     </style>
 </head>
 <body>
 
-    <h1>Onde estou?</h1>
-    <button onclick="localizar()">DETETAR FREGUESIA</button>
-    <div id="resultado">Clica no botão para começar</div>
+<div class="container">
+    <h1>Localizador GPS</h1>
+    <div id="nome-freguesia">A carregar mapa...</div>
+    <div id="nome-concelho"></div>
+    <button onclick="detectar()">ONDE ESTOU AGORA?</button>
+    <div id="status">A aguardar sinal...</div>
+</div>
 
-    <script>
-        // Lista de teste (vamos ampliar isto depois)
-        const locais = [
-            { nome: "Lisboa (Centro)", lat: 38.72, lon: -9.13 },
-            { nome: "Porto (Centro)", lat: 41.15, lon: -8.61 },
-            { nome: "Faro (Centro)", lat: 37.01, lon: -7.93 }
-        ];
+<script>
+    let mapaReal = null;
 
-        function localizar() {
-            const res = document.getElementById('resultado');
-            res.innerHTML = "A procurar...";
+    // LINK DIRETO PARA O GEOJSON OFICIAL (Versão Otimizada para Web)
+    const urlMapa = "https://raw.githubusercontent.com/vitorspaco/freguesias-portugal/master/freguesias-portugal.json";
 
-            if (!navigator.geolocation) {
-                res.innerHTML = "O seu browser não suporta GPS.";
-                return;
-            }
+    fetch(urlMapa)
+        .then(res => {
+            if (!res.ok) throw new Error("Erro ao carregar mapa");
+            return res.json();
+        })
+        .then(data => {
+            mapaReal = data;
+            document.getElementById('nome-freguesia').innerHTML = "Mapa de Portugal Pronto";
+            document.getElementById('status').innerHTML = "Sistema Online";
+        })
+        .catch(err => {
+            document.getElementById('nome-freguesia').innerHTML = "Erro de Ligação";
+            document.getElementById('status').innerHTML = "Tenta recarregar a página";
+        });
 
-            navigator.geolocation.getCurrentPosition((pos) => {
-                const minhaLat = pos.coords.latitude;
-                const minhaLon = pos.coords.longitude;
-                
-                // Cálculo simples de proximidade
-                let localMaisProximo = "Estás em Portugal, mas longe dos pontos de teste.";
-                let menorDistancia = 0.5; // Raio de busca aproximado
+    function detectar() {
+        if (!mapaReal) return;
+        
+        document.getElementById('nome-freguesia').innerHTML = "A calcular...";
+        document.getElementById('status').innerHTML = "A ler satélites GPS...";
 
-                locais.forEach(local => {
-                    const d = Math.sqrt(Math.pow(local.lat - minhaLat, 2) + Math.pow(local.lon - minhaLon, 2));
-                    if (d < menorDistancia) {
-                        menorDistancia = d;
-                        localMaisProximo = "Estás em: " + local.nome;
-                    }
-                });
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const ponto = turf.point([pos.coords.longitude, pos.coords.latitude]);
+            let encontrou = false;
 
-                res.innerHTML = `Latitude: ${minhaLat.toFixed(4)}<br>${localMaisProximo}`;
-            }, (erro) => {
-                res.innerHTML = "Erro ao obter GPS: " + erro.message;
+            turf.featureEach(mapaReal, (feature) => {
+                if (turf.booleanPointInPolygon(ponto, feature)) {
+                    const fNome = feature.properties.freguesia;
+                    const cNome = feature.properties.concelho;
+                    
+                    document.getElementById('nome-freguesia').innerHTML = fNome;
+                    document.getElementById('nome-concelho').innerHTML = cNome;
+                    document.getElementById('status').innerHTML = "Localizado com sucesso!";
+                    encontrou = true;
+                }
             });
-        }
-    </script>
+
+            if (!encontrou) {
+                document.getElementById('nome-freguesia').innerHTML = "Fora de Portugal";
+                document.getElementById('status').innerHTML = "Coordenadas: " + pos.coords.latitude.toFixed(4) + ", " + pos.coords.longitude.toFixed(4);
+            }
+        }, (err) => {
+            document.getElementById('nome-freguesia').innerHTML = "GPS Bloqueado";
+            document.getElementById('status').innerHTML = "Ativa a localização no tablet";
+        }, { enableHighAccuracy: true });
+    }
+</script>
+
 </body>
 </html>
