@@ -2,33 +2,121 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arbitragem GPS - Total</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arbitragem</title>
+    
+    <!-- Configurações de Web App (PWA) -->
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background: #121212; color: white; }
-        .card { background: #1e1e1e; padding: 40px; border-radius: 20px; border: 1px solid #333; max-width: 500px; margin: 0 auto; }
-        #freguesia { font-size: 32px; color: #00ff88; margin: 20px 0; font-weight: bold; min-height: 40px; }
-        #concelho { font-size: 20px; color: #888; margin-bottom: 30px; }
-        button { background: #007bff; color: white; border: none; padding: 20px; border-radius: 12px; width: 100%; font-size: 22px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:active { background: #0056b3; transform: scale(0.98); }
-        .info { margin-top: 20px; font-size: 12px; color: #444; }
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --primary: #007bff;
+            --accent: #00ff88;
+            --text: #ffffff;
+            --text-secondary: #888888;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .app-container {
+            width: 90%;
+            max-width: 400px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        .result-box {
+            margin: 40px 0;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        #freguesia {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--accent);
+            line-height: 1.2;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        #concelho {
+            font-size: 18px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 20px;
+            border-radius: 15px;
+            width: 100%;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.96);
+            background: #0056b3;
+        }
+
+        .status-bar {
+            margin-top: 25px;
+            font-size: 11px;
+            color: #444;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h1>Localizador Oficial</h1>
-    <p>3.091 Freguesias de Portugal</p>
+<div class="app-container">
+    <h1>Arbitragem GPS</h1>
     
-    <div id="freguesia">Pronto para detetar</div>
-    <div id="concelho">---</div>
-    
-    <button onclick="localizar()">ONDE ESTOU AGORA?</button>
-    
-    <div class="info" id="coords">Lat: -- | Lon: --</div>
+    <div class="result-box">
+        <div id="freguesia">Pronto</div>
+        <div id="concelho">Toque para detetar</div>
+    </div>
+
+    <button onclick="localizar()">ONDE ESTOU?</button>
+
+    <div class="status-bar" id="coords">SINAL GPS: AGUARDANDO</div>
 </div>
 
 <script>
@@ -37,36 +125,53 @@
         const cDisplay = document.getElementById('concelho');
         const coDisplay = document.getElementById('coords');
 
-        fDisplay.innerHTML = "A consultar satélites...";
+        fDisplay.innerHTML = "A LOCALIZAR...";
+        cDisplay.innerHTML = "Consultando satélites";
 
         navigator.geolocation.getCurrentPosition((pos) => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
-            coDisplay.innerHTML = `Lat: ${lat.toFixed(4)} | Lon: ${lon.toFixed(4)}`;
+            coDisplay.innerHTML = `LAT: ${lat.toFixed(4)} | LON: ${lon.toFixed(4)}`;
 
-            // Chamada à API oficial do OpenStreetMap
+            // API Nominatim (OpenStreetMap)
             const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
 
             fetch(url)
                 .then(res => res.json())
                 .then(data => {
-                    console.log(data.address);
-                    // Em Portugal, a freguesia vem muitas vezes na chave 'village', 'suburb' ou 'neighbourhood'
-                    const freguesia = data.address.settlement || data.address.village || data.address.suburb || data.address.neighbourhood || data.address.city_district || "Freguesia não identificada";
-                    const concelho = data.address.city || data.address.town || data.address.municipality || "";
+                    const addr = data.address;
+                    
+                    // Lógica de prioridade para freguesias em Portugal
+                    const freguesiaFinal = addr.suburb || 
+                                           addr.village || 
+                                           addr.neighbourhood || 
+                                           addr.city_district || 
+                                           addr.township || 
+                                           addr.settlement || 
+                                           "Freguesia não detetada";
 
-                    fDisplay.innerHTML = freguesia;
-                    cDisplay.innerHTML = concelho;
+                    const concelhoFinal = addr.city || 
+                                          addr.town || 
+                                          addr.municipality || 
+                                          addr.county || 
+                                          "Local desconhecido";
+
+                    fDisplay.innerHTML = freguesiaFinal;
+                    cDisplay.innerHTML = concelhoFinal;
                 })
                 .catch(err => {
-                    fDisplay.innerHTML = "Erro na consulta";
-                    console.error(err);
+                    fDisplay.innerHTML = "ERRO DE REDE";
+                    cDisplay.innerHTML = "Verifique a internet";
                 });
 
         }, (err) => {
-            fDisplay.innerHTML = "GPS Bloqueado";
-            alert("Por favor, ativa a localização no tablet.");
-        }, { enableHighAccuracy: true });
+            fDisplay.innerHTML = "GPS BLOQUEADO";
+            cDisplay.innerHTML = "Ative a localização";
+        }, { 
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0 
+        });
     }
 </script>
 
