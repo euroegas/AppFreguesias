@@ -3,76 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Arbitragem PRO</title>
+    <title>Arbitragem</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png">
+
     <style>
-        body { font-family: sans-serif; background: #000; color: #fff; text-align: center; padding: 10px; }
-        
-        /* A CAIXA DE DIAGNÓSTICO AGORA NO TOPO */
-        #debug { 
-            background: #222; 
-            color: #0f0; 
-            font-family: monospace; 
-            font-size: 10px; 
-            text-align: left; 
-            padding: 10px; 
-            margin-bottom: 20px; 
-            border: 1px solid #444;
-            max-height: 150px;
-            overflow: auto;
-            display: block !important; /* Força a aparição */
+        :root {
+            --bg: #0b0b0b;
+            --card: #161616;
+            --accent: #00ff88;
+            --btn: #007bff;
         }
 
-        .box { background: #111; padding: 20px; border-radius: 20px; border: 1px solid #333; }
-        h2 { color: #00ff88; font-size: 30px; margin: 10px 0; }
-        button { background: #007bff; color: #fff; border: none; padding: 20px; width: 100%; border-radius: 10px; font-size: 20px; font-weight: bold; }
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background: var(--bg);
+            color: white;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .container {
+            width: 85%;
+            max-width: 380px;
+            background: var(--card);
+            padding: 40px 20px;
+            border-radius: 30px;
+            border: 1px solid #252525;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        .label { color: #555; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+        
+        #freguesia {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--accent);
+            margin: 10px 0;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        #concelho {
+            color: #888;
+            font-size: 18px;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button {
+            background: var(--btn);
+            color: white;
+            border: none;
+            padding: 22px;
+            width: 100%;
+            border-radius: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            box-shadow: 0 10px 20px rgba(0, 123, 255, 0.3);
+            cursor: pointer;
+        }
+
+        button:active { transform: scale(0.96); opacity: 0.9; }
+
+        #coords { margin-top: 30px; font-size: 9px; color: #333; font-family: monospace; }
     </style>
 </head>
 <body>
 
-    <div id="debug">Aguardando clique no botão... (Se vês isto, o código atualizou)</div>
-
-    <div class="box">
-        <p style="color: #888;">LOCALIZADOR</p>
-        <h2 id="freguesia">---</h2>
-        <p id="concelho" style="color: #888;">---</p>
+    <div class="container">
+        <div class="label">Localizador Arbitragem</div>
+        <div id="freguesia">PRONTO</div>
+        <div id="concelho">Toque para detetar</div>
+        
         <button onclick="localizar()">ONDE ESTOU?</button>
+        
+        <div id="coords">SINAL: STANDBY</div>
     </div>
 
 <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+
     function localizar() {
-        const debug = document.getElementById('debug');
-        const fDisplay = document.getElementById('freguesia');
-        
-        debug.innerHTML = "A tentar GPS...";
-        fDisplay.innerHTML = "A LER...";
+        const fDisp = document.getElementById('freguesia');
+        const cDisp = document.getElementById('concelho');
+        const coDisp = document.getElementById('coords');
+
+        fDisp.innerHTML = "A LER...";
+        cDisp.innerHTML = "A CONSULTAR";
 
         navigator.geolocation.getCurrentPosition((pos) => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
-            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+            coDisp.innerHTML = `LAT: ${lat.toFixed(5)} | LON: ${lon.toFixed(5)}`;
 
-            debug.innerHTML = "GPS OK. A chamar servidor...";
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
 
             fetch(url)
                 .then(res => res.json())
                 .then(data => {
-                    // MOSTRA TUDO NA CAIXA DE DEBUG
-                    debug.innerHTML = "RESPOSTA: " + JSON.stringify(data.address, null, 2);
-
                     const a = data.address;
-                    // Tenta encontrar a freguesia em qualquer gaveta
-                    const nome = a.suburb || a.village || a.neighbourhood || a.parish || a.township || a.city_district || a.hamlet || "NÃO ENCONTRADO";
-                    const cidade = a.city || a.town || a.municipality || "PORTUGAL";
+                    
+                    // LÓGICA PRIORITÁRIA PARA 'TOWN'
+                    // 1. Tenta 'town' (Monte Gordo)
+                    // 2. Se não houver, tenta as outras alternativas
+                    let principal = a.town || a.suburb || a.village || a.hamlet || a.parish || a.neighbourhood || "DESCONHECIDO";
+                    
+                    // O Concelho fica com a cidade principal ou município
+                    let secundario = a.city || a.municipality || a.county || "PORTUGAL";
 
-                    fDisplay.innerHTML = nome;
-                    document.getElementById('concelho').innerHTML = cidade;
+                    fDisp.innerHTML = principal;
+                    cDisp.innerHTML = secundario;
                 })
-                .catch(err => {
-                    debug.innerHTML = "ERRO NA API: " + err;
+                .catch(() => {
+                    fDisp.innerHTML = "ERRO REDE";
                 });
 
-        }, (err) => {
-            debug.innerHTML = "ERRO NO GPS: " + err.message;
+        }, () => {
+            fDisp.innerHTML = "GPS OFF";
         }, { enableHighAccuracy: true });
     }
 </script>
