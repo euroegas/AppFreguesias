@@ -1,20 +1,59 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="pt">
 <head>
-    <title>Teste Freguesias</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbitragem - Freguesias</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f0f0f0; }
+        button { padding: 20px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 8px; }
+        #resultado { margin-top: 30px; font-size: 24px; font-weight: bold; color: #333; }
+    </style>
 </head>
 <body>
-    <h1>Setup Concluído!</h1>
-    <p id="localizacao">A carregar sinal GPS...</p>
-    
+
+    <h1>Onde estou?</h1>
+    <button onclick="localizar()">DETETAR FREGUESIA</button>
+    <div id="resultado">Clica no botão para começar</div>
+
     <script>
-        navigator.geolocation.getCurrentPosition((pos) => {
-            document.getElementById('localizacao').innerText = 
-                "GPS OK! Latitude: " + pos.coords.latitude;
-        }, (err) => {
-            document.getElementById('localizacao').innerText = "Erro no GPS: " + err.message;
-        });
+        // Lista de teste (vamos ampliar isto depois)
+        const locais = [
+            { nome: "Lisboa (Centro)", lat: 38.72, lon: -9.13 },
+            { nome: "Porto (Centro)", lat: 41.15, lon: -8.61 },
+            { nome: "Faro (Centro)", lat: 37.01, lon: -7.93 }
+        ];
+
+        function localizar() {
+            const res = document.getElementById('resultado');
+            res.innerHTML = "A procurar...";
+
+            if (!navigator.geolocation) {
+                res.innerHTML = "O seu browser não suporta GPS.";
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const minhaLat = pos.coords.latitude;
+                const minhaLon = pos.coords.longitude;
+                
+                // Cálculo simples de proximidade
+                let localMaisProximo = "Estás em Portugal, mas longe dos pontos de teste.";
+                let menorDistancia = 0.5; // Raio de busca aproximado
+
+                locais.forEach(local => {
+                    const d = Math.sqrt(Math.pow(local.lat - minhaLat, 2) + Math.pow(local.lon - minhaLon, 2));
+                    if (d < menorDistancia) {
+                        menorDistancia = d;
+                        localMaisProximo = "Estás em: " + local.nome;
+                    }
+                });
+
+                res.innerHTML = `Latitude: ${minhaLat.toFixed(4)}<br>${localMaisProximo}`;
+            }, (erro) => {
+                res.innerHTML = "Erro ao obter GPS: " + erro.message;
+            });
+        }
     </script>
 </body>
 </html>
